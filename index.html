@@ -521,7 +521,7 @@ function defaultState() {
 // ══════════════════════════════════════════
 async function cloudSave() {
  try {
- const { error } = await sb.from('journey_data').upsert({ id: DB_ID, data: S, updated_at: new Date().toISOString() });
+ const { error } = await sb.from('pcos_data').upsert({ id: DB_ID, data: S, updated_at: new Date().toISOString() });
  if (!error) { cloudOK = true; setDot(true); return true; }
  } catch(e) {}
  setDot(false); return false;
@@ -529,7 +529,7 @@ async function cloudSave() {
 
 async function cloudLoad() {
  try {
- const { data, error } = await sb.from('journey_data').select('data').eq('id', DB_ID).single();
+ const { data, error } = await sb.from('pcos_data').select('data').eq('id', DB_ID).single();
  if (!error && data) { cloudOK = true; setDot(true); return data.data; }
  } catch(e) {}
  setDot(false); return null;
@@ -554,11 +554,11 @@ async function doLogin() {
  document.getElementById('lerr').textContent = '';
  if (!p) { document.getElementById('lerr').textContent = 'Enter your PIN'; return; }
  if (p !== S.pin) { document.getElementById('lerr').textContent = 'Incorrect PIN ❌'; return; }
- S.name = u; showLoader('Saving... ☁️');
- await save(); hideLoader();
- document.getElementById('ls').classList.remove('on');
- document.getElementById('as').classList.add('on');
- initApp();
+ S.name = u;
+  document.getElementById('ls').classList.remove('on');
+  document.getElementById('as').classList.add('on');
+  initApp();
+  save().then(()=>toast('☁️ Saved!')).catch(e=>console.log(e));
 }
 
 async function doLogout() {
@@ -962,17 +962,18 @@ async function delCustomMeal(i){
 // BOOT — load from Supabase first
 // ══════════════════════════════════════════
 (async () => {
- showLoader('Connecting to cloud ☁️');
- const cloud = await cloudLoad();
- if (cloud) {
- S = cloud;
- } else {
- const local = lLoad();
- S = local || defaultState();
- }
- hideLoader();
- // If previously logged in, go straight to app
- document.getElementById('ls').classList.add('on');
+  showLoader('Loading... 🌸');
+  try {
+    const cloud = await Promise.race([
+      cloudLoad(),
+      new Promise(r => setTimeout(() => r(null), 5000))
+    ]);
+    S = cloud || lLoad() || defaultState();
+  } catch(e) {
+    S = lLoad() || defaultState();
+  }
+  hideLoader();
+  document.getElementById('ls').classList.add('on');
 })();
 </script>
 </body>
